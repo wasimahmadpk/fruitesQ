@@ -56,8 +56,9 @@ You need to add three roles so it can deploy to Cloud Run and push images.
 2. In the search box, type **Cloud Run Admin**. Select **"Cloud Run Admin"** from the list. Click **"ADD ANOTHER ROLE"**.
 3. In the second Role dropdown, search for **Artifact Registry Administrator**. Select it. Click **"ADD ANOTHER ROLE"** again.
 4. In the third Role dropdown, search for **Service Account User**. Select it.
-5. Click **"CONTINUE"** at the bottom.
-6. On the next screen (optional), click **"DONE"**.
+5. *(Optional but recommended)* Click **"ADD ANOTHER ROLE"**, search for **Service Usage Admin**, and add it. This lets the workflow enable the Artifact Registry and Cloud Run APIs automatically. If you skip this, you must enable the APIs once manually (see **Troubleshooting** below).
+6. Click **"CONTINUE"** at the bottom.
+7. On the next screen (optional), click **"DONE"**.
 
 ### Step 4.4 — Create and download the key (JSON)
 
@@ -167,3 +168,17 @@ terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
 - **Account**: [cloud.google.com/free](https://cloud.google.com/free) → $300 credits, 90 days.
 - **Secrets**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY` in GitHub repo settings.
 - **Deploy**: Push to `main` → GitHub Actions builds, pushes to GCP, runs Terraform → Cloud Run URLs in the workflow log.
+
+---
+
+## Troubleshooting
+
+### "Artifact Registry API has not been used in project ... or it is disabled"
+
+Enable the API once in your project:
+
+1. Open: **[https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com](https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com)**
+2. Select your **project** at the top.
+3. Click **"ENABLE"**.
+4. Also enable **Cloud Run** if needed: [https://console.cloud.google.com/apis/library/run.googleapis.com](https://console.cloud.google.com/apis/library/run.googleapis.com) → **ENABLE**.
+5. Wait 1–2 minutes, then re-run the failed workflow: **Actions** → open the run → **Re-run all jobs**.
