@@ -8,7 +8,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Docker requires lowercase; repo may be wasimahmadpk/fruitesQ
+  IMAGE_NAME: wasimahmadpk/fruitesq
 
 jobs:
   # ── 1. Lint & Test ──────────────────────────────────────────────────────────
