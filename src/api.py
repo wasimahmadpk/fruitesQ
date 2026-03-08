@@ -15,9 +15,11 @@ from __future__ import annotations
 import logging
 from contextlib import asynccontextmanager
 
+import os
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import RedirectResponse
 
 import mlflow_tracking
 from src.inventory import get_inventory
@@ -47,6 +49,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+DASHBOARD_URL = os.getenv("FRUITQ_DASHBOARD_URL", "http://localhost:8501")
+
+
+# ---------------------------------------------------------------------------
+# Root → redirect to Streamlit dashboard
+# ---------------------------------------------------------------------------
+
+@app.get("/", include_in_schema=False)
+def root():
+    return RedirectResponse(url=DASHBOARD_URL)
 
 
 # ---------------------------------------------------------------------------
@@ -88,9 +102,13 @@ async def predict(
         logger.exception("Model inference failed")
         raise HTTPException(status_code=500, detail=f"Model error: {exc}") from exc
 
+    # Use AI-detected fruit name unless the user explicitly provided one
+    detected_name = result.fruit_name
+    resolved_name = fruit_name if fruit_name not in ("unknown", "") else detected_name
+
     inventory = get_inventory()
     item = inventory.add(
-        name=fruit_name,
+        name=resolved_name,
         result=result,
         image_filename=file.filename,
     )
@@ -99,7 +117,7 @@ async def predict(
     try:
         run_id = mlflow_tracking.log_prediction(
             image_filename=file.filename or "unknown",
-            fruit_name=fruit_name,
+            fruit_name=resolved_name,
             ripeness_label=result.label,
             confidence=result.confidence,
             shipping_priority=result.shipping_priority,
@@ -111,7 +129,9 @@ async def predict(
 
     return {
         "item_id": item.id,
-        "fruit_name": fruit_name,
+        "fruit_name": resolved_name,
+        "detected_fruit": detected_name,
+        "fruit_confidence": result.fruit_confidence,
         "ripeness_label": result.label,
         "confidence": result.confidence,
         "shipping_priority": result.shipping_priority,

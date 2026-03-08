@@ -48,12 +48,27 @@ _LABEL_MAP = {
 }
 
 
+# Candidate fruit types for identification
+FRUIT_TYPES = [
+    "apple", "banana", "mango", "orange", "strawberry",
+    "avocado", "peach", "pear", "grapes", "watermelon",
+    "kiwi", "pineapple", "cherry", "blueberry", "papaya",
+    "plum", "lemon", "lime", "pomegranate", "guava",
+    "coconut", "fig", "dragonfruit", "passion fruit", "lychee",
+]
+
+_FRUIT_CANDIDATE_LABELS = [f"a photo of a {fruit}" for fruit in FRUIT_TYPES]
+_FRUIT_LABEL_MAP = {f"a photo of a {fruit}": fruit for fruit in FRUIT_TYPES}
+
+
 @dataclass
 class RipenessResult:
     label: str          # One of RIPENESS_LABELS
     confidence: float   # 0–100
     shipping_priority: str
     raw_scores: dict[str, float]
+    fruit_name: str = "unknown"
+    fruit_confidence: float = 0.0
 
 
 class FruitRipenessModel:
@@ -75,13 +90,24 @@ class FruitRipenessModel:
         )
         logger.info("Model loaded.")
 
+    def identify_fruit(self, image: Image.Image) -> tuple[str, float]:
+        """Identify the fruit type. Returns (name, confidence_0_100)."""
+        self._load()
+        results = self._pipe(image, candidate_labels=_FRUIT_CANDIDATE_LABELS)  # type: ignore[call-arg]
+        top = results[0]
+        name = _FRUIT_LABEL_MAP[top["label"]]
+        return name.title(), round(top["score"] * 100, 2)
+
     def predict(self, image: Image.Image) -> RipenessResult:
         """Run inference on a PIL Image and return a RipenessResult."""
         self._load()
 
+        # Step 1: identify the fruit
+        fruit_name, fruit_confidence = self.identify_fruit(image)
+
+        # Step 2: classify ripeness
         results = self._pipe(image, candidate_labels=_CANDIDATE_LABELS)  # type: ignore[call-arg]
 
-        # Build score dict mapped to friendly labels
         raw_scores: dict[str, float] = {}
         for r in results:
             friendly = _LABEL_MAP[r["label"]]
@@ -95,6 +121,8 @@ class FruitRipenessModel:
             confidence=confidence,
             shipping_priority=SHIPPING_PRIORITY[best],
             raw_scores=raw_scores,
+            fruit_name=fruit_name,
+            fruit_confidence=fruit_confidence,
         )
 
     def predict_from_bytes(self, data: bytes) -> RipenessResult:

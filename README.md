@@ -4,6 +4,12 @@
 
 Upload a photo of a fruit → AI detects its ripeness → System ranks all fruits in the inventory → Most ripe ships first.
 
+### Dashboard
+
+<p align="center">
+  <img src="docs/dashboard_screenshot.png" alt="FruitQ Dashboard" width="700">
+</p>
+
 ---
 
 ## Architecture

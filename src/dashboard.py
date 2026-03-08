@@ -77,7 +77,7 @@ with st.sidebar:
     st.divider()
 
     st.subheader("Upload a Fruit Image")
-    fruit_name = st.text_input("Fruit name (optional)", placeholder="e.g. Mango")
+    fruit_name = st.text_input("Fruit name (leave blank to auto-detect)", placeholder="Auto-detected by AI")
     uploaded_file = st.file_uploader(
         "Choose an image", type=["jpg", "jpeg", "png", "webp"]
     )
@@ -100,9 +100,13 @@ with st.sidebar:
                 conf = data["confidence"]
                 priority = data["shipping_priority"]
                 emoji = RIPENESS_EMOJI.get(label, "")
+                detected = data.get("detected_fruit", "unknown")
+                fruit_conf = data.get("fruit_confidence", 0)
 
                 st.divider()
                 st.subheader("Result")
+                st.metric("Fruit Detected", f"{detected}")
+                st.caption(f"Identification confidence: {fruit_conf:.1f}%")
                 st.metric("Ripeness", f"{emoji} {label}")
                 st.metric("Confidence", f"{conf:.1f}%")
 
