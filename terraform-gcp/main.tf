@@ -39,30 +39,9 @@ locals {
   image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${local.app_name}/api:${var.image_tag}"
 }
 
-# ── Enable APIs ──────────────────────────────────────────────────────────────
-
-resource "google_project_service" "artifactregistry" {
-  project            = var.project_id
-  service            = "artifactregistry.googleapis.com"
-  disable_on_destroy = false
-}
-
-resource "google_project_service" "run" {
-  project            = var.project_id
-  service            = "run.googleapis.com"
-  disable_on_destroy = false
-}
-
-# ── Artifact Registry (Docker repo) ───────────────────────────────────────────
-
-resource "google_artifact_registry_repository" "fruitq" {
-  location      = var.region
-  repository_id = local.app_name
-  description   = "FruitQ container images"
-  format        = "DOCKER"
-
-  depends_on = [google_project_service.artifactregistry]
-}
+# APIs (Artifact Registry, Cloud Run) must be enabled in the console or by a user
+# with Service Usage Admin. The Artifact Registry repo is created by CI (gcloud).
+# Terraform only creates the two Cloud Run services and IAM.
 
 # ── Cloud Run: API ───────────────────────────────────────────────────────────
 
@@ -99,10 +78,6 @@ resource "google_cloud_run_v2_service" "api" {
     }
   }
 
-  depends_on = [
-    google_project_service.run,
-    google_artifact_registry_repository.fruitq,
-  ]
 }
 
 # Allow unauthenticated access (public API)
