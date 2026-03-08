@@ -37,4 +37,8 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.backup
 terraform/.terraform.lock.hcl
+terraform-gcp/.terraform/
+terraform-gcp/*.tfstate
+terraform-gcp/*.tfstate.backup
+terraform-gcp/.terraform.lock.hcl
 sample_images/

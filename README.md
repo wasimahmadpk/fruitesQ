@@ -37,7 +37,7 @@ Upload a photo of a fruit → AI detects its ripeness → System ranks all fruit
 | Experiment tracking | MLflow |
 | Containerisation | Docker (multi-stage build) |
 | CI/CD | GitHub Actions |
-| Cloud deployment | Azure Container Instances via Terraform |
+| Cloud deployment | Google Cloud Run (Terraform) or Azure Container Instances |
 
 ---
 
@@ -169,35 +169,40 @@ Tests mock the vision model so no GPU or internet access is required.
 Every push triggers:
 
 1. **Test** — `pytest tests/`
-2. **Build** — Docker image built
-3. **Push** — Image pushed to GHCR (on `main` branch only)
-4. **Deploy** — `terraform apply` to Azure (on `main` branch only)
+2. **Build** — Docker image built and pushed to GHCR (on `main` only)
+3. **Deploy** — Image pushed to Google Artifact Registry and deployed to **Google Cloud Run** (on `main` only)
 
-Required GitHub Secrets:
+Required GitHub Secrets (for GCP deploy):
 
 | Secret | Description |
 |---|---|
-| `ARM_CLIENT_ID` | Azure service principal client ID |
-| `ARM_CLIENT_SECRET` | Azure service principal secret |
-| `ARM_SUBSCRIPTION_ID` | Azure subscription ID |
-| `ARM_TENANT_ID` | Azure tenant ID |
+| `GCP_PROJECT_ID` | Your GCP project ID (e.g. `my-fruitq-project`) |
+| `GCP_SA_KEY` | Service account JSON key (full contents, for CI auth) |
+| `GCP_REGION` | Region (e.g. `us-central1`) |
+
+See [docs/GCP_SETUP.md](docs/GCP_SETUP.md) for step-by-step Google Cloud setup.
 
 ---
 
-## Cloud Deployment (Terraform)
+## Cloud Deployment
+
+### Google Cloud (recommended)
+
+```bash
+cd terraform-gcp
+terraform init
+terraform apply -var="project_id=YOUR_GCP_PROJECT_ID" -var="region=us-central1"
+```
+
+Outputs: `api_url`, `dashboard_url`, `artifact_registry` (image path for CI).
+
+### Azure (optional)
 
 ```bash
 cd terraform
 terraform init
-terraform apply \
-  -var="registry_username=YOUR_GITHUB_USERNAME" \
-  -var="registry_password=YOUR_GHCR_PAT"
+terraform apply -var="registry_username=YOUR_GITHUB_USERNAME" -var="registry_password=YOUR_GHCR_PAT"
 ```
-
-Outputs:
-
-- `api_url` — public URL for the REST API
-- `dashboard_url` — public URL for the Streamlit dashboard
 
 ---
 
@@ -232,7 +237,9 @@ fruitesQ/
 │   └── workflows/
 │       └── ci.yml       # GitHub Actions CI/CD
 ├── terraform/
-│   └── main.tf          # Azure Container Instances
+│   └── main.tf          # Azure Container Instances (optional)
+├── terraform-gcp/
+│   └── main.tf          # Google Cloud Run (Artifact Registry + 2 services)
 ├── mlflow_tracking.py   # MLflow helpers
 ├── Dockerfile
 ├── requirements.txt
@@ -243,7 +250,7 @@ fruitesQ/
 
 ## Interview Summary
 
-> "I built FruitQ — an AI-powered fruit ripeness detection system. It uses a pre-trained CLIP vision model from Hugging Face to classify fruit ripeness into four categories and rank them so the most ripe ones ship first, reducing food waste. The system has a REST API built with FastAPI, a Streamlit dashboard with real-time inventory management, is fully containerised with Docker, deployed to Azure using Terraform, and has a CI/CD pipeline with GitHub Actions. All predictions are tracked with MLflow, including low-confidence alerts."
+> "I built FruitQ — an AI-powered fruit ripeness detection system. It uses a pre-trained CLIP vision model from Hugging Face to classify fruit ripeness into four categories and rank them so the most ripe ones ship first, reducing food waste. The system has a REST API built with FastAPI, a Streamlit dashboard with real-time inventory management and live camera capture, is fully containerised with Docker, deployed to Google Cloud Run using Terraform, and has a CI/CD pipeline with GitHub Actions. All predictions are tracked with MLflow, including low-confidence alerts."
 
 ---
 
