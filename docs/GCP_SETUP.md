@@ -182,6 +182,11 @@ terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
 
 ## Troubleshooting
 
+### "Permission denied" or push to Artifact Registry fails
+
+- Ensure the service account has **Artifact Registry Administrator** (step 4.3).
+- Create the repository once manually: in [Artifact Registry](https://console.cloud.google.com/artifacts), click **+ Create repository** → **Docker** → name `fruitq` → same **region** as `GCP_REGION` (e.g. `us-central1`) → **Create**. Then re-run the workflow.
+
 ### "Artifact Registry API has not been used in project ... or it is disabled"
 
 Enable the API once in your project:

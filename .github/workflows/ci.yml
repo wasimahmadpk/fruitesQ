@@ -112,15 +112,12 @@ jobs:
         run: terraform init
 
       - name: Ensure Artifact Registry repo exists
-        working-directory: terraform-gcp
-        env:
-          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
-          TF_VAR_region: ${{ secrets.GCP_REGION }}
-          TF_VAR_image_tag: latest
         run: |
-          terraform apply -target=google_project_service.artifactregistry \
-            -target=google_project_service.run \
-            -target=google_artifact_registry_repository.fruitq -auto-approve || true
+          gcloud artifacts repositories describe fruitq --location=${{ secrets.GCP_REGION }} 2>/dev/null || \
+          gcloud artifacts repositories create fruitq \
+            --repository-format=docker \
+            --location=${{ secrets.GCP_REGION }} \
+            --description="FruitQ container images"
 
       - name: Log in to GHCR and pull image
         run: |
