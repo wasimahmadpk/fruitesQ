@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf_cache:/app/.cache/huggingface
+      - mlruns:/app/mlruns
+    environment:
+      - MLFLOW_TRACKING_URI=mlruns
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  dashboard:
+    build: .
+    command: >
+      streamlit run src/dashboard.py
+      --server.port 8501
+      --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    environment:
+      - FRUITQ_API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.12.1
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlruns:/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri /mlruns
+
+volumes:
+  hf_cache:
+  mlruns:
