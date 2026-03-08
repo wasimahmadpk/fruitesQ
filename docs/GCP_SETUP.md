@@ -32,6 +32,16 @@ This guide walks you through creating a Google Cloud account and deploying Fruit
 
 ---
 
+## 3b. Enable required APIs (one-time)
+
+The deploy needs **Artifact Registry** and **Cloud Run** to be enabled in your project:
+
+1. [Enable Artifact Registry](https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com) — select your project → **ENABLE**.
+2. [Enable Cloud Run](https://console.cloud.google.com/apis/library/run.googleapis.com) — select your project → **ENABLE**.
+3. Wait 1–2 minutes before the first deploy.
+
+---
+
 ## 4. Create a service account for GitHub Actions
 
 **This step is done in Google Cloud (not GitHub).** A **service account** is like a robot user. GitHub Actions will use it to deploy your app to Google Cloud. You create it in the Google Cloud Console and then paste the key into GitHub as a secret.
@@ -56,9 +66,8 @@ You need to add three roles so it can deploy to Cloud Run and push images.
 2. In the search box, type **Cloud Run Admin**. Select **"Cloud Run Admin"** from the list. Click **"ADD ANOTHER ROLE"**.
 3. In the second Role dropdown, search for **Artifact Registry Administrator**. Select it. Click **"ADD ANOTHER ROLE"** again.
 4. In the third Role dropdown, search for **Service Account User**. Select it.
-5. *(Optional but recommended)* Click **"ADD ANOTHER ROLE"**, search for **Service Usage Admin**, and add it. This lets the workflow enable the Artifact Registry and Cloud Run APIs automatically. If you skip this, you must enable the APIs once manually (see **Troubleshooting** below).
-6. Click **"CONTINUE"** at the bottom.
-7. On the next screen (optional), click **"DONE"**.
+5. Click **"CONTINUE"** at the bottom.
+6. On the next screen (optional), click **"DONE"**.
 
 ### Step 4.4 — Create and download the key (JSON)
 
