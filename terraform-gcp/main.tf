@@ -68,11 +68,20 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "SKIP_MODEL_WARMUP"
         value = "1"
       }
+      # Cloud Run fs is read-only except /tmp; model must cache under /tmp
+      env {
+        name  = "HF_HOME"
+        value = "/tmp/hf_cache"
+      }
+      env {
+        name  = "TRANSFORMERS_CACHE"
+        value = "/tmp/hf_cache"
+      }
 
       resources {
         limits = {
-          cpu    = "1"
-          memory = "2Gi"
+          cpu    = "2"
+          memory = "4Gi"
         }
         cpu_idle = true
       }

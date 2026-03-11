@@ -47,9 +47,10 @@ So Terraform can update existing Cloud Run services (instead of failing with "al
 1. In [Cloud Storage](https://console.cloud.google.com/storage/browser), click your bucket **fruitesq-fruitq-tfstate** (or `YOUR_PROJECT_ID-fruitq-tfstate`).
 2. Open the **Permissions** tab.
 3. Click **Grant Access**.
-4. **New principals:** paste your workflow service account email (e.g. `github-actions-fruitq@fruitesq.iam.gserviceaccount.com` — same as in IAM → Service Accounts).
-5. **Role:** choose **Storage Object Admin**.
-6. Save. The deploy job can then use the bucket for Terraform state.
+4. **New principals:** paste your workflow service account email (e.g. `github-actions-fruitq@fruitesq.iam.gserviceaccount.com`).
+5. **Role:** choose **Storage Admin** (so the SA can describe the bucket and read/write state files).  
+   If you prefer minimal access, add the SA twice: once with **Storage Legacy Bucket Reader** (bucket metadata) and once with **Storage Object Admin** (state files).
+6. Save.
 
 ---
 
@@ -209,6 +210,13 @@ Terraform state was not persisted, so it tried to create a service that already 
 
 1. Create the **GCS bucket for Terraform state** (see step **3b** above) if you haven’t.
 2. Re-run the workflow. The job will use the bucket for state, so the next run will **update** the existing services instead of creating them.
+
+### 500 Internal Server Error on /predict
+
+The first prediction loads the CLIP model and can fail if the container has no writable cache or too little memory. We set `HF_HOME=/tmp/hf_cache` and 4Gi memory in Terraform. If it still fails:
+
+1. In [Cloud Run](https://console.cloud.google.com/run) click **fruitq-api** → **Logs**. Check the error message (e.g. `Out of memory`, `Permission denied`, `Connection error`).
+2. Ensure the revision has **4 GiB memory** and env **HF_HOME=/tmp/hf_cache** (re-deploy from main to apply Terraform changes).
 
 ### "Repository \"fruitq\" not found" (push fails)
 
