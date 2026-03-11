@@ -182,10 +182,21 @@ terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
 
 ## Troubleshooting
 
-### "Permission denied" or push to Artifact Registry fails
+### "Repository \"fruitq\" not found" (push fails)
 
-- Ensure the service account has **Artifact Registry Administrator** (step 4.3).
-- Create the repository once manually: in [Artifact Registry](https://console.cloud.google.com/artifacts), click **+ Create repository** → **Docker** → name `fruitq` → same **region** as `GCP_REGION` (e.g. `us-central1`) → **Create**. Then re-run the workflow.
+The Artifact Registry repo must exist before the workflow can push. Create it once:
+
+1. Open **[Artifact Registry](https://console.cloud.google.com/artifacts)** in Google Cloud Console.
+2. Select your **project** at the top.
+3. Click **"+ CREATE REPOSITORY"**.
+4. **Name:** `fruitq` (must be exactly this).
+5. **Format:** **Docker**.
+6. **Mode:** Standard.
+7. **Location type:** **Region** → choose the **same region** as your `GCP_REGION` secret (e.g. **us-central1**).
+8. Click **"CREATE"**.
+9. In GitHub: **Actions** → open the failed run → **"Re-run all jobs"**.
+
+After that, the push step should succeed.
 
 ### "Artifact Registry API has not been used in project ... or it is disabled"
 
