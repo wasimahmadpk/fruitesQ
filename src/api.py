@@ -102,7 +102,8 @@ async def predict(
         result = get_model().predict_from_bytes(data)
     except Exception as exc:
         logger.exception("Model inference failed")
-        raise HTTPException(status_code=500, detail=f"Model error: {exc}") from exc
+        msg = str(exc) if str(exc) else repr(exc)
+        raise HTTPException(status_code=500, detail=f"Model error: {msg}") from exc
 
     # Use AI-detected fruit name unless the user explicitly provided one
     detected_name = result.fruit_name

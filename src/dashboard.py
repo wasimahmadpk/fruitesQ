@@ -79,9 +79,15 @@ def analyse_image(image_bytes: bytes, filename: str, content_type: str, fruit_na
                 f"{API_BASE}/predict",
                 files={"file": (filename, image_bytes, content_type)},
                 data={"fruit_name": fruit_name or "unknown"},
-                timeout=60,
+                timeout=300,
             )
-            response.raise_for_status()
+            if response.status_code != 200:
+                try:
+                    err = response.json().get("detail", response.text)
+                except Exception:
+                    err = response.text or f"HTTP {response.status_code}"
+                st.error(f"Prediction failed: {err}")
+                return
             data = response.json()
 
             label = data["ripeness_label"]
@@ -115,6 +121,8 @@ def analyse_image(image_bytes: bytes, filename: str, content_type: str, fruit_na
             st.success("Added to inventory!")
             st.rerun()
 
+        except requests.exceptions.Timeout:
+            st.error("Prediction timed out. The model may still be loading on the server; try again in a minute.")
         except Exception as e:
             st.error(f"Prediction failed: {e}")
 
