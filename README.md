@@ -205,6 +205,18 @@ After `terraform apply` you get two URLs:
 
 ---
 
+## Monitoring the vision model on Google Cloud
+
+To see how your CLIP model is behaving in production (errors, latency, traffic):
+
+- **Logs** — [Cloud Run → fruitq-api → Logs](https://console.cloud.google.com/run) (model load, inference errors, stack traces).
+- **Metrics** — Same service → **Metrics** tab (request count, latency, memory, CPU, error rate).
+- **Alerts** — [Monitoring → Alerting](https://console.cloud.google.com/monitoring/alerting): e.g. alert when error rate or latency is high.
+
+Full step-by-step: [docs/MONITORING.md](docs/MONITORING.md).
+
+---
+
 ## MLflow tracking
 
 Every prediction is logged automatically:
@@ -239,6 +251,7 @@ fruitesQ/
 │   └── main.tf          — Azure Container Instances (optional)
 ├── docs/
 │   ├── GCP_SETUP.md     — Step-by-step Google Cloud setup
+│   ├── MONITORING.md    — How to monitor the vision model on GCP
 │   └── FruitQ_Project_Documentation.pdf
 ├── mlflow_tracking.py   — MLflow logging helpers
 ├── Dockerfile           — Multi-stage container build
