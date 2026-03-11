@@ -36,6 +36,13 @@ variable "image_tag" {
   default     = "latest"
 }
 
+variable "hf_token" {
+  description = "Hugging Face token (optional; avoids 429 rate limit when loading model)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 locals {
   app_name   = "fruitq"
   image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${local.app_name}/api:${var.image_tag}"
@@ -76,6 +83,10 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "TRANSFORMERS_CACHE"
         value = "/tmp/hf_cache"
+      }
+      env {
+        name  = "HF_TOKEN"
+        value = var.hf_token
       }
 
       resources {

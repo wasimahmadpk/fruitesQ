@@ -144,15 +144,26 @@ GitHub Actions needs three pieces of information to deploy to Google Cloud. You 
 5. **Secret:** **paste** the entire JSON (the whole file content) into the box. Do not change or remove any character; it must be one valid JSON object.
 6. Click **"Add secret"**.
 
-### Step 5.5 — Check that all three are there
+### Step 5.5 (recommended) — Add Hugging Face token to avoid 429 rate limit
 
-Under **"Repository secrets"** you should see:
+If the live API returns "429 Too Many Requests" when loading the CLIP model, add a Hugging Face token:
+
+1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) and create a token (read access is enough).
+2. In GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
+3. **Name:** `HF_TOKEN`. **Secret:** paste your Hugging Face token. **Add secret**.
+4. Re-run the deploy workflow (or push a commit). The API container will get `HF_TOKEN` and can load the model without being rate-limited.
+
+### Step 5.6 — Check that all required secrets are there
+
+Under **"Repository secrets"** you should see at least:
 
 | Name            | Updated    |
 |-----------------|------------|
 | `GCP_PROJECT_ID`| Just now   |
 | `GCP_REGION`    | Just now   |
 | `GCP_SA_KEY`    | Just now   |
+
+Optionally: `HF_TOKEN` (recommended if you see 429 errors when using the live API).
 
 (You will not see the secret values, only the names — that’s normal.)
 
@@ -210,6 +221,10 @@ Terraform state was not persisted, so it tried to create a service that already 
 
 1. Create the **GCS bucket for Terraform state** (see step **3b** above) if you haven’t.
 2. Re-run the workflow. The job will use the bucket for state, so the next run will **update** the existing services instead of creating them.
+
+### 429 Too Many Requests when loading the model
+
+Hugging Face rate-limits unauthenticated downloads. Add a **Hugging Face token** as GitHub secret `HF_TOKEN` (see step **5.5**). Re-deploy so the API container gets the token; then the model can load without 429.
 
 ### 500 Internal Server Error on /predict
 
