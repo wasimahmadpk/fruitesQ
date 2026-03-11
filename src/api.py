@@ -30,9 +30,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Warm up the model on startup so the first request isn't slow
-    logger.info("Warming up model …")
-    get_model()._load()
+    # Skip model warmup in Cloud Run so the container starts within startup timeout.
+    # Model loads lazily on first /predict request.
+    if not os.getenv("SKIP_MODEL_WARMUP"):
+        logger.info("Warming up model …")
+        get_model()._load()
     yield
 
 

@@ -62,6 +62,10 @@ resource "google_cloud_run_v2_service" "api" {
         name  = "MLFLOW_TRACKING_URI"
         value = "mlruns"
       }
+      env {
+        name  = "SKIP_MODEL_WARMUP"
+        value = "1"
+      }
 
       resources {
         limits = {
@@ -76,6 +80,8 @@ resource "google_cloud_run_v2_service" "api" {
       min_instance_count = 0
       max_instance_count = 3
     }
+
+    timeout = "600s"
   }
 
 }
