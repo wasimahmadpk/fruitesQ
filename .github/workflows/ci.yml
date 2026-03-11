@@ -166,4 +166,4 @@ jobs:
           TF_VAR_region: ${{ secrets.GCP_REGION }}
           TF_VAR_image_tag: ${{ github.sha }}
           TF_VAR_hf_token: ${{ secrets.HF_TOKEN }}
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve -lock=false

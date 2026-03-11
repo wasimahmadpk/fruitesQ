@@ -215,6 +215,10 @@ terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
 
 ## Troubleshooting
 
+### Terraform "Error acquiring the state lock"
+
+A previous run may have left the state locked. CI uses `-lock=false` on apply so this should be rare. If it happens, re-run the job or force-unlock locally: `terraform init` (with backend config) then `terraform force-unlock <LOCK_ID>` using the ID from the error.
+
 ### "Resource 'fruitq-api' already exists" (Terraform 409)
 
 Terraform state was not persisted, so it tried to create a service that already exists. Fix:
