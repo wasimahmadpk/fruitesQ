@@ -143,6 +143,20 @@ jobs:
           docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/fruitq/api:${{ github.sha }}
           docker push ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/fruitq/api:latest
 
+      - name: Terraform Import existing resources (if any)
+        working-directory: terraform-gcp
+        env:
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ secrets.GCP_REGION }}
+          TF_VAR_image_tag: ${{ github.sha }}
+        run: |
+          PROJ="${{ secrets.GCP_PROJECT_ID }}"
+          REGION="${{ secrets.GCP_REGION }}"
+          terraform import google_cloud_run_v2_service.api "projects/$PROJ/locations/$REGION/services/fruitq-api" 2>/dev/null || true
+          terraform import google_cloud_run_v2_service.dashboard "projects/$PROJ/locations/$REGION/services/fruitq-dashboard" 2>/dev/null || true
+          terraform import 'google_cloud_run_v2_service_iam_member.api_public' "projects/$PROJ/locations/$REGION/services/fruitq-api roles/run.invoker allUsers" 2>/dev/null || true
+          terraform import 'google_cloud_run_v2_service_iam_member.dashboard_public' "projects/$PROJ/locations/$REGION/services/fruitq-dashboard roles/run.invoker allUsers" 2>/dev/null || true
+
       - name: Terraform Apply (GCP)
         working-directory: terraform-gcp
         env:
