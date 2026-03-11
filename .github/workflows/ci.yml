@@ -107,11 +107,13 @@ jobs:
         with:
           terraform_version: "1.8.0"
 
-      - name: Ensure GCS bucket for Terraform state
+      - name: Ensure GCS bucket for Terraform state exists
         run: |
           BUCKET="${{ secrets.GCP_PROJECT_ID }}-fruitq-tfstate"
-          gcloud storage buckets describe gs://$BUCKET 2>/dev/null || \
-          gcloud storage buckets create gs://$BUCKET --location=${{ secrets.GCP_REGION }} --project=${{ secrets.GCP_PROJECT_ID }}
+          if ! gcloud storage buckets describe gs://$BUCKET; then
+            echo "::error::Bucket gs://$BUCKET not found or service account has no access. Create it in Cloud Console and grant the workflow service account 'Storage Object Admin' on the bucket."
+            exit 1
+          fi
 
       - name: Terraform Init (GCP)
         working-directory: terraform-gcp

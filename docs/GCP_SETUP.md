@@ -42,7 +42,14 @@ So Terraform can update existing Cloud Run services (instead of failing with "al
 4. **Location type:** Region → same as your `GCP_REGION` (e.g. `us-central1`).
 5. Click **CREATE**.
 
-If you skip this, the workflow will try to create the bucket; if the service account lacks permission, create the bucket manually as above.
+**Grant the workflow service account access to the bucket** (required so Terraform can read/write state):
+
+1. In [Cloud Storage](https://console.cloud.google.com/storage/browser), click your bucket **fruitesq-fruitq-tfstate** (or `YOUR_PROJECT_ID-fruitq-tfstate`).
+2. Open the **Permissions** tab.
+3. Click **Grant Access**.
+4. **New principals:** paste your workflow service account email (e.g. `github-actions-fruitq@fruitesq.iam.gserviceaccount.com` — same as in IAM → Service Accounts).
+5. **Role:** choose **Storage Object Admin**.
+6. Save. The deploy job can then use the bucket for Terraform state.
 
 ---
 
