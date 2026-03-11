@@ -1,10 +1,12 @@
-# 🍎 FruitQ
+# FruitQ
 
-> AI-powered fruit ripeness detection & shipping optimisation.
+> AI-powered fruit ripeness detection and shipping optimisation.
 
-Upload a photo of a fruit → AI detects its ripeness → System ranks all fruits in the inventory → Most ripe ships first.
+Take a photo of a fruit, upload it, and FruitQ tells you how ripe it is and when it should ship. The most ripe fruits always go first, reducing food waste.
 
-### Dashboard
+---
+
+### Dashboard preview
 
 <p align="center">
   <img src="docs/dashboard_screenshot.png" alt="FruitQ Dashboard" width="700">
@@ -12,248 +14,246 @@ Upload a photo of a fruit → AI detects its ripeness → System ranks all fruit
 
 ---
 
-## Architecture
+## What it does
 
-```
-┌──────────────┐     POST /predict      ┌──────────────────────┐
-│  Streamlit   │ ──────────────────────▶│  FastAPI  (api.py)   │
-│  Dashboard   │ ◀────────────────────── │                      │
-└──────────────┘   JSON result           │  model.py  (CLIP)    │
-                                         │  inventory.py        │
-                                         │  mlflow_tracking.py  │
-                                         └──────────────────────┘
-                                                  │
-                                         ┌────────▼────────┐
-                                         │    MLflow UI     │
-                                         │  (local ./mlruns)│
-                                         └─────────────────┘
-```
+1. **Upload a photo** (or take one live with your webcam) of a fruit.
+2. **AI identifies the fruit** (banana, mango, apple, etc.) and **classifies its ripeness** (Unripe / Nearly Ripe / Ripe / Overripe).
+3. **Inventory is automatically ranked** — the most ripe fruits appear at the top.
+4. **Shipping priority is assigned** so you always ship the right fruits first.
 
-| Layer | Technology |
+| Ripeness | Ships |
 |---|---|
-| Vision model | `openai/clip-vit-base-patch32` via Hugging Face Transformers |
-| REST API | FastAPI + Uvicorn |
-| Dashboard | Streamlit + Plotly |
-| Experiment tracking | MLflow |
-| Containerisation | Docker (multi-stage build) |
-| CI/CD | GitHub Actions |
-| Cloud deployment | Google Cloud Run (Terraform) or Azure Container Instances |
+| Overripe | Today |
+| Ripe | Tomorrow |
+| Nearly Ripe | In 3 days |
+| Unripe | Not yet |
 
 ---
 
-## Ripeness Labels
+## How it works (simple version)
 
-| Label | Shipping Priority |
-|---|---|
-| 🔴 Overripe | Today |
-| 🟠 Ripe | Tomorrow |
-| 🟡 Nearly Ripe | In 3 days |
-| 🟢 Unripe | Not yet |
+```
+You upload a photo
+       |
+  FastAPI (the backend) receives it
+       |
+  CLIP model (AI from OpenAI / Hugging Face)
+    - identifies the fruit type
+    - classifies ripeness
+       |
+  Result stored in inventory (sorted by urgency)
+       |
+  MLflow records the prediction for monitoring
+       |
+  Streamlit dashboard shows everything in a table
+```
 
 ---
 
-## Quick Start (Local)
+## Tech stack
 
-### 1 — Clone & install
+| What | Tool | Why |
+|---|---|---|
+| AI model | CLIP (Hugging Face) | Identifies fruit and ripeness from photos — no training needed |
+| Backend API | FastAPI + Python | Fast, modern REST API |
+| Dashboard | Streamlit + Plotly | Interactive web UI with upload and live camera |
+| Experiment tracking | MLflow | Logs every prediction for monitoring |
+| Containerisation | Docker | App runs identically everywhere |
+| CI/CD | GitHub Actions | Auto-tests and deploys on every push |
+| Cloud deployment | Google Cloud Run | Runs the containerised app in the cloud |
+| Infrastructure | Terraform | Cloud resources defined as code |
+
+---
+
+## Run locally (on your machine)
+
+> **You need:** Python 3.11+ and pip installed.
+
+**Step 1 — Get the code**
 
 ```bash
 git clone https://github.com/wasimahmadpk/fruitesQ.git
 cd fruitesQ
-python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2 — Start the API
+**Step 2 — Start the API** (open Terminal 1)
 
 ```bash
 uvicorn src.api:app --reload --port 8000
 ```
 
-The first request will download the CLIP model (~340 MB) from Hugging Face automatically.
+The first time it runs, it downloads the CLIP model (~340 MB). This only happens once.
 
-Interactive docs: http://localhost:8000/docs
-
-### 3 — Start the Dashboard
+**Step 3 — Start the dashboard** (open Terminal 2)
 
 ```bash
 streamlit run src/dashboard.py
 ```
 
-Dashboard: http://localhost:8501
+**Step 4 — Open the app**
 
-### 4 — Start MLflow UI (optional)
+| Service | URL |
+|---|---|
+| Dashboard | http://localhost:8501 |
+| API docs (Swagger) | http://localhost:8000/docs |
+| Health check | http://localhost:8000/health |
+| MLflow (optional) | http://localhost:5000 |
 
+To start MLflow, open a third terminal and run:
 ```bash
 mlflow ui --port 5000
 ```
 
-MLflow UI: http://localhost:5000
-
 ---
 
-## API Endpoints
+## Run with Docker (optional)
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/predict` | Upload image → get ripeness + add to inventory |
-| `GET` | `/inventory` | List all fruits ranked by ripeness |
-| `GET` | `/inventory/summary` | Counts by ripeness + ship-today list |
-| `DELETE` | `/inventory/{id}` | Remove a fruit after it ships |
-| `GET` | `/health` | Health check |
+> **You need:** Docker installed and running.
 
-### Example — curl
-
-```bash
-curl -X POST http://localhost:8000/predict \
-  -F "file=@/path/to/mango.jpg" \
-  -F "fruit_name=mango"
-```
-
-Response:
-
-```json
-{
-  "item_id": "3f4a...",
-  "fruit_name": "mango",
-  "ripeness_label": "Ripe",
-  "confidence": 84.3,
-  "shipping_priority": "Tomorrow",
-  "raw_scores": {
-    "Unripe": 3.1,
-    "Nearly Ripe": 9.2,
-    "Ripe": 84.3,
-    "Overripe": 3.4
-  },
-  "mlflow_run_id": "abc123..."
-}
-```
-
----
-
-## Docker
-
-### Build & run locally
-
-```bash
-# API
-docker build -t fruitq .
-docker run -p 8000:8000 fruitq
-
-# Dashboard (override CMD)
-docker run -p 8501:8501 \
-  -e FRUITQ_API_URL=http://host.docker.internal:8000 \
-  fruitq \
-  streamlit run src/dashboard.py --server.port 8501 --server.address 0.0.0.0
-```
-
-### Docker Compose (both services together)
+Run both the API and dashboard together with one command:
 
 ```bash
 docker compose up
 ```
 
+Or run just the API:
+
+```bash
+docker build -t fruitq .
+docker run -p 8000:8000 fruitq
+```
+
 ---
 
-## Running Tests
+## Run the tests
 
 ```bash
 pytest tests/ -v
 ```
 
-Tests mock the vision model so no GPU or internet access is required.
+Tests use a mock model — no internet or GPU needed. They run in a few seconds.
 
 ---
 
-## CI/CD Pipeline
+## API endpoints
 
-Every push triggers:
+| Method | URL | What it does |
+|---|---|---|
+| `POST` | `/predict` | Upload a fruit image, get ripeness result |
+| `GET` | `/inventory` | List all fruits ranked by ripeness |
+| `GET` | `/inventory/summary` | Count by ripeness + fruits that ship today |
+| `DELETE` | `/inventory/{id}` | Remove a fruit after it ships |
+| `GET` | `/health` | Check if the API is running |
 
-1. **Test** — `pytest tests/`
-2. **Build** — Docker image built and pushed to GHCR (on `main` only)
-3. **Deploy** — Image pushed to Google Artifact Registry and deployed to **Google Cloud Run** (on `main` only)
+**Example — upload a photo with curl:**
 
-Required GitHub Secrets (for GCP deploy):
+```bash
+curl -X POST http://localhost:8000/predict \
+  -F "file=@mango.jpg" \
+  -F "fruit_name=mango"
+```
 
-| Secret | Description |
+**Example response:**
+
+```json
+{
+  "fruit_name": "Mango",
+  "detected_fruit": "Mango",
+  "fruit_confidence": 91.2,
+  "ripeness_label": "Ripe",
+  "confidence": 84.3,
+  "shipping_priority": "Tomorrow"
+}
+```
+
+---
+
+## CI/CD pipeline
+
+Every time you push code to GitHub, three things happen automatically:
+
+1. **Tests run** — `pytest tests/`
+2. **Docker image built and pushed** to GitHub Container Registry (GHCR)
+3. **App deployed to Google Cloud Run** via Terraform
+
+You need these GitHub repository secrets for cloud deploy:
+
+| Secret | What it is |
 |---|---|
-| `GCP_PROJECT_ID` | Your GCP project ID (e.g. `my-fruitq-project`) |
-| `GCP_SA_KEY` | Service account JSON key (full contents, for CI auth) |
-| `GCP_REGION` | Region (e.g. `us-central1`) |
+| `GCP_PROJECT_ID` | Your Google Cloud project ID |
+| `GCP_REGION` | Cloud region (e.g. `us-central1`) |
+| `GCP_SA_KEY` | Service account JSON key (full file contents) |
+| `HF_TOKEN` | Hugging Face token (avoids 429 rate limit) |
 
-See [docs/GCP_SETUP.md](docs/GCP_SETUP.md) for step-by-step Google Cloud setup.
+See [docs/GCP_SETUP.md](docs/GCP_SETUP.md) for the full step-by-step cloud setup.
 
 ---
 
-## Cloud Deployment
-
-### Google Cloud (recommended)
+## Cloud deployment (Google Cloud Run)
 
 ```bash
 cd terraform-gcp
-terraform init
-terraform apply -var="project_id=YOUR_GCP_PROJECT_ID" -var="region=us-central1"
+terraform init -backend-config="bucket=YOUR_PROJECT_ID-fruitq-tfstate" -backend-config="prefix=fruitq"
+terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
 ```
 
-Outputs: `api_url`, `dashboard_url`, `artifact_registry` (image path for CI).
+After `terraform apply` you get two URLs:
 
-### Azure (optional)
-
-```bash
-cd terraform
-terraform init
-terraform apply -var="registry_username=YOUR_GITHUB_USERNAME" -var="registry_password=YOUR_GHCR_PAT"
-```
+- `api_url` — the live REST API
+- `dashboard_url` — the live Streamlit dashboard
 
 ---
 
-## MLflow Tracking
+## MLflow tracking
 
-Every prediction logs:
+Every prediction is logged automatically:
 
-- `image_filename` — uploaded file name
-- `fruit_name` — fruit label
-- `ripeness_label` — detected class
-- `shipping_priority` — Today / Tomorrow / In 3 days / Not yet
-- `confidence` — model confidence (0–100 %)
-- Per-class scores
+- Fruit name and image filename
+- Ripeness label (Unripe / Nearly Ripe / Ripe / Overripe)
+- Confidence score (0–100%)
+- Shipping priority
+- Scores for each ripeness category
 
-An `alert: low_confidence` tag is added when confidence drops below 60 %.
+If confidence drops below 60%, the prediction is tagged with `alert: low_confidence` so you can review it.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 fruitesQ/
 ├── src/
-│   ├── api.py           # FastAPI endpoints
-│   ├── model.py         # CLIP-based ripeness model
-│   ├── inventory.py     # Ripeness ranking & inventory management
-│   └── dashboard.py     # Streamlit dashboard
+│   ├── api.py           — FastAPI endpoints (REST API)
+│   ├── model.py         — CLIP vision model (fruit ID + ripeness)
+│   ├── inventory.py     — Inventory ranking and management
+│   └── dashboard.py     — Streamlit dashboard (upload, camera, charts)
 ├── tests/
-│   ├── test_api.py
-│   └── test_inventory.py
-├── .github/
-│   └── workflows/
-│       └── ci.yml       # GitHub Actions CI/CD
-├── terraform/
-│   └── main.tf          # Azure Container Instances (optional)
+│   ├── test_api.py      — API integration tests
+│   └── test_inventory.py— Inventory unit tests
+├── .github/workflows/
+│   └── ci.yml           — GitHub Actions (test → build → deploy)
 ├── terraform-gcp/
-│   └── main.tf          # Google Cloud Run (Artifact Registry + 2 services)
-├── mlflow_tracking.py   # MLflow helpers
-├── Dockerfile
-├── requirements.txt
-└── README.md
+│   └── main.tf          — Google Cloud Run infrastructure
+├── terraform/
+│   └── main.tf          — Azure Container Instances (optional)
+├── docs/
+│   ├── GCP_SETUP.md     — Step-by-step Google Cloud setup
+│   └── FruitQ_Project_Documentation.pdf
+├── mlflow_tracking.py   — MLflow logging helpers
+├── Dockerfile           — Multi-stage container build
+├── docker-compose.yml   — Run all services together
+└── requirements.txt     — Python dependencies
 ```
 
 ---
 
-## Interview Summary
+## Interview summary
 
-> "I built FruitQ — an AI-powered fruit ripeness detection system. It uses a pre-trained CLIP vision model from Hugging Face to classify fruit ripeness into four categories and rank them so the most ripe ones ship first, reducing food waste. The system has a REST API built with FastAPI, a Streamlit dashboard with real-time inventory management and live camera capture, is fully containerised with Docker, deployed to Google Cloud Run using Terraform, and has a CI/CD pipeline with GitHub Actions. All predictions are tracked with MLflow, including low-confidence alerts."
+> "I built FruitQ — an AI system that detects fruit ripeness from photos and ranks inventory so the most ripe items ship first, reducing food waste. It uses a CLIP vision model from Hugging Face, a FastAPI backend, and a Streamlit dashboard with live camera support. The app is containerised with Docker, deployed to Google Cloud Run via Terraform, and has an automated CI/CD pipeline with GitHub Actions. Every prediction is tracked in MLflow."
 
 ---
 
-## Total Cost
+## Total cost
 
 **$0** — all tools are free or have a free tier.

@@ -1,264 +1,246 @@
-# Deploy FruitQ to Google Cloud (Step-by-Step)
+# FruitQ — Google Cloud Deployment Guide
 
-This guide walks you through creating a Google Cloud account and deploying FruitQ to **Cloud Run** via GitHub Actions.
+This guide explains how to deploy FruitQ to the cloud using **Google Cloud Run**. Follow each step in order. No prior cloud experience needed.
 
 ---
 
-## 1. Create a Google Cloud account
+## What you will set up
 
-1. Go to **[https://cloud.google.com/free](https://cloud.google.com/free)**.
+| Step | What you do |
+|---|---|
+| 1 | Create a free Google Cloud account |
+| 2 | Create a project |
+| 3 | Enable billing |
+| 4 | Create a storage bucket (saves deployment state) |
+| 5 | Grant the bucket access |
+| 6 | Enable the required APIs |
+| 7 | Create a service account (a robot user for GitHub) |
+| 8 | Download the JSON key |
+| 9 | Add secrets to GitHub |
+| 10 | Deploy |
+
+---
+
+## Step 1 — Create a Google Cloud account
+
+1. Open: **https://cloud.google.com/free**
 2. Click **"Get started for free"**.
-3. Sign in with a Google account (or create one).
-4. Enter your country and accept the terms.
-5. Add a payment method (card). You get **$300 free credits for 90 days** and are not charged unless you turn on billing and exceed free tier.
-6. Complete signup. You will land in the [Cloud Console](https://console.cloud.google.com).
+3. Sign in with your Google account (Gmail). If you don't have one, create one — it's free.
+4. Accept the terms and choose your country.
+5. Add a **credit or debit card** (Google uses it only to verify your identity).
+   - You will **NOT** be charged automatically.
+   - You receive **$300 in free credits for 90 days**.
+6. Click **Start my free trial**. You will land in the **Google Cloud Console**.
+
+> The Cloud Console is at: **https://console.cloud.google.com**
 
 ---
 
-## 2. Create a project
+## Step 2 — Create a project
 
-1. In the Cloud Console, open the project dropdown at the top (next to "Google Cloud").
+A project is like a folder that holds all your cloud resources.
+
+1. In the Console, click the **project dropdown** at the top (next to the Google Cloud logo).
 2. Click **"New Project"**.
-3. Name it (e.g. `fruitq-app`). Note the **Project ID** (e.g. `fruitq-app-12345`). You will need it later.
-4. Click **Create**.
+3. Give it a name (e.g. `fruitq-app`).
+4. Look at the **Project ID** (shown below the name, e.g. `fruitq-app-12345`). **Copy it** — you will need it later.
+5. Click **Create**.
+
+> The **Project ID** is what you use in settings and commands. It's NOT the same as the project name.
 
 ---
 
-## 3. Enable billing (required for Cloud Run)
+## Step 3 — Enable billing
 
-1. Go to **Billing** in the left menu (or [console.cloud.google.com/billing](https://console.cloud.google.com/billing)).
-2. Link a billing account to your project (the $300 free credits apply here).
-3. Cloud Run and Artifact Registry will use this; you stay within free tier for light use.
+Cloud Run requires billing to be enabled (your free credits cover this).
 
----
-
-## 3b. Create GCS bucket for Terraform state (one-time)
-
-So Terraform can update existing Cloud Run services (instead of failing with "already exists"), state is stored in a GCS bucket.
-
-1. Open **[Cloud Storage](https://console.cloud.google.com/storage/browser)** in your project.
-2. Click **CREATE BUCKET**.
-3. **Name:** `YOUR_PROJECT_ID-fruitq-tfstate` (e.g. if Project ID is `myapp-123`, use `myapp-123-fruitq-tfstate`).
-4. **Location type:** Region → same as your `GCP_REGION` (e.g. `us-central1`).
-5. Click **CREATE**.
-
-**Grant the workflow service account access to the bucket** (required so Terraform can read/write state):
-
-1. In [Cloud Storage](https://console.cloud.google.com/storage/browser), click your bucket **fruitesq-fruitq-tfstate** (or `YOUR_PROJECT_ID-fruitq-tfstate`).
-2. Open the **Permissions** tab.
-3. Click **Grant Access**.
-4. **New principals:** paste your workflow service account email (e.g. `github-actions-fruitq@fruitesq.iam.gserviceaccount.com`).
-5. **Role:** choose **Storage Admin** (so the SA can describe the bucket and read/write state files).  
-   If you prefer minimal access, add the SA twice: once with **Storage Legacy Bucket Reader** (bucket metadata) and once with **Storage Object Admin** (state files).
-6. Save.
+1. In the Console, open the left menu and click **"Billing"** (or go to https://console.cloud.google.com/billing).
+2. Click **"Link a billing account"** and follow the prompts.
+3. Your $300 free credits will apply automatically.
 
 ---
 
-## 3c. Enable required APIs (one-time)
+## Step 4 — Create a storage bucket for Terraform state
 
-The deploy needs **Artifact Registry** and **Cloud Run** to be enabled in your project:
+Terraform (the tool that deploys your Cloud Run services) needs somewhere to save its progress. This prevents errors when you deploy multiple times.
 
-1. [Enable Artifact Registry](https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com) — select your project → **ENABLE**.
-2. [Enable Cloud Run](https://console.cloud.google.com/apis/library/run.googleapis.com) — select your project → **ENABLE**.
-3. Wait 1–2 minutes before the first deploy.
+1. Open **Cloud Storage**: https://console.cloud.google.com/storage/browser
+2. Make sure your project is selected at the top.
+3. Click **"Create bucket"** (or **"+ Create"**).
+4. **Bucket name:** type your Project ID, then `-fruitq-tfstate`.
+   - Example: if your Project ID is `fruitq-app-12345`, the bucket name is `fruitq-app-12345-fruitq-tfstate`.
+   - Bucket names must be globally unique — this format ensures that.
+5. **Location type:** choose **"Region"**.
+6. **Region:** choose `us-central1` (or the same region you'll use throughout).
+7. Click **"Create"**.
 
 ---
 
-## 4. Create a service account for GitHub Actions
+## Step 5 — Create a service account
 
-**This step is done in Google Cloud (not GitHub).** A **service account** is like a robot user. GitHub Actions will use it to deploy your app to Google Cloud. You create it in the Google Cloud Console and then paste the key into GitHub as a secret.
+A service account is like a robot user. GitHub Actions will use it to deploy to Google Cloud on your behalf.
 
-### Step 4.1 — Open Service Accounts (in Google Cloud)
+### 5a — Open service accounts
 
-1. In your browser, go to: **[https://console.cloud.google.com/iam-admin/serviceaccounts](https://console.cloud.google.com/iam-admin/serviceaccounts)**
-2. At the top, make sure the **correct project** is selected (the one you created in step 2). If not, click the project name and choose your project (e.g. `fruitq-app`).
-3. Click the blue **"+ CREATE SERVICE ACCOUNT"** button at the top.
+1. Open: https://console.cloud.google.com/iam-admin/serviceaccounts
+2. Make sure your project is selected at the top.
+3. Click **"+ Create service account"**.
 
-### Step 4.2 — Name the service account
+### 5b — Name it
 
-1. **Service account name:** type `github-actions-fruitq` (or any name you like).
-2. **Service account ID** will fill in automatically.
-3. Click **"CREATE AND CONTINUE"** at the bottom.
+1. **Service account name:** type `github-actions-fruitq`.
+2. The **Service account ID** will fill automatically (e.g. `github-actions-fruitq@fruitq-app-12345.iam.gserviceaccount.com`). **Copy this email** — you need it in step 6.
+3. Click **"Create and continue"**.
 
-### Step 4.3 — Give it the right roles
+### 5c — Assign roles
 
-You need to add three roles so it can deploy to Cloud Run and push images.
+Roles tell Google what this account is allowed to do. Add these three:
 
 1. Click the **"Role"** dropdown.
-2. In the search box, type **Cloud Run Admin**. Select **"Cloud Run Admin"** from the list. Click **"ADD ANOTHER ROLE"**.
-3. In the second Role dropdown, search for **Artifact Registry Administrator**. Select it. Click **"ADD ANOTHER ROLE"** again.
-4. In the third Role dropdown, search for **Service Account User**. Select it.
-5. Click **"CONTINUE"** at the bottom.
-6. On the next screen (optional), click **"DONE"**.
+2. Search for **Cloud Run Admin** → select it → click **"Add another role"**.
+3. Search for **Artifact Registry Administrator** → select it → click **"Add another role"**.
+4. Search for **Service Account User** → select it.
+5. Click **"Continue"** → **"Done"**.
 
-### Step 4.4 — Create and download the key (JSON)
+### 5d — Download the JSON key
 
-1. You should now see a list of service accounts. Find **github-actions-fruitq** (or the name you used) and **click on its email** (e.g. `github-actions-fruitq@your-project.iam.gserviceaccount.com`).
-2. Open the **"KEYS"** tab at the top.
-3. Click **"ADD KEY"** → **"Create new key"**.
-4. Choose **"JSON"** and click **"CREATE"**. A JSON file will download to your computer (e.g. `your-project-abc123.json`).
-5. **Keep this file safe and private.** You will copy its contents into GitHub in the next section. Do not share the file or commit it to Git.
-
----
-
-## 5. Add the three secrets to GitHub
-
-GitHub Actions needs three pieces of information to deploy to Google Cloud. You add them as **repository secrets** so they are stored securely and never shown in logs.
-
-### Step 5.1 — Open your repo’s secret settings
-
-1. Go to your FruitQ repo: **https://github.com/wasimahmadpk/fruitesQ**
-2. Click the **"Settings"** tab (top menu of the repo; not your profile settings).
-3. In the left sidebar, under **"Security"**, click **"Secrets and variables"** → **"Actions"**.
-4. You will see **"Repository secrets"**. This is where you add the three secrets.
-
-### Step 5.2 — Add the first secret: `GCP_PROJECT_ID`
-
-1. Click **"New repository secret"**.
-2. **Name:** type exactly: `GCP_PROJECT_ID` (all caps, with underscores).
-3. **Secret:** type your **Google Cloud Project ID** (e.g. `fruitq-app-12345`). You can find it in the Google Cloud Console at the top when your project is selected, or in the project list. It is usually the project name in lowercase with numbers.
-4. Click **"Add secret"**.
-
-### Step 5.3 — Add the second secret: `GCP_REGION`
-
-1. Click **"New repository secret"** again.
-2. **Name:** type exactly: `GCP_REGION`.
-3. **Secret:** type: `us-central1` (this is a Google Cloud region; you can use another like `europe-west1` if you prefer).
-4. Click **"Add secret"**.
-
-### Step 5.4 — Add the third secret: `GCP_SA_KEY`
-
-1. Open the **JSON key file** you downloaded in step 4.4 (e.g. with Notepad, TextEdit, or VS Code). You will see something like:
-   ```json
-   {
-     "type": "service_account",
-     "project_id": "your-project-123",
-     "private_key_id": "...",
-     "private_key": "-----BEGIN PRIVATE KEY-----\n...",
-     ...
-   }
-   ```
-2. Select **all** the text in the file (Ctrl+A or Cmd+A) and **copy** it (Ctrl+C or Cmd+C).
-3. In GitHub, click **"New repository secret"** again.
-4. **Name:** type exactly: `GCP_SA_KEY`.
-5. **Secret:** **paste** the entire JSON (the whole file content) into the box. Do not change or remove any character; it must be one valid JSON object.
-6. Click **"Add secret"**.
-
-### Step 5.5 (recommended) — Add Hugging Face token to avoid 429 rate limit
-
-If the live API returns "429 Too Many Requests" when loading the CLIP model, add a Hugging Face token:
-
-1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) and create a token (read access is enough).
-2. In GitHub → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**.
-3. **Name:** `HF_TOKEN`. **Secret:** paste your Hugging Face token. **Add secret**.
-4. Re-run the deploy workflow (or push a commit). The API container will get `HF_TOKEN` and can load the model without being rate-limited.
-
-### Step 5.6 — Check that all required secrets are there
-
-Under **"Repository secrets"** you should see at least:
-
-| Name            | Updated    |
-|-----------------|------------|
-| `GCP_PROJECT_ID`| Just now   |
-| `GCP_REGION`    | Just now   |
-| `GCP_SA_KEY`    | Just now   |
-
-Optionally: `HF_TOKEN` (recommended if you see 429 errors when using the live API).
-
-(You will not see the secret values, only the names — that’s normal.)
+1. In the service accounts list, click on the email of the account you just created.
+2. Click the **"Keys"** tab.
+3. Click **"Add key"** → **"Create new key"**.
+4. Choose **JSON** → click **"Create"**.
+5. A `.json` file downloads to your computer. **Keep this file safe and do not share it.**
 
 ---
 
-## 6. Deploy
+## Step 6 — Grant the bucket access to the service account
 
-1. Ensure your Docker image is built and pushed to GHCR on the `main` branch (the existing **Build & Push** job does this).
-2. Push a commit to `main` (or merge a PR). The **Deploy to GCP (Cloud Run)** job will:
-   - Create Artifact Registry and push the image from GHCR to GCP
-   - Run Terraform to create two Cloud Run services (API + Dashboard)
-3. Check **Actions** tab for the workflow run. When it succeeds, Terraform outputs the URLs in the job log (or run `terraform output` in `terraform-gcp/` after a local apply).
+The service account needs permission to read and write to the Terraform state bucket.
 
----
-
-## 7. Run Terraform locally (optional)
-
-If you prefer to deploy from your machine instead of CI:
-
-```bash
-# Install gcloud CLI: https://cloud.google.com/sdk/docs/install
-gcloud auth application-default login
-gcloud config set project YOUR_PROJECT_ID
-
-cd terraform-gcp
-terraform init
-terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
-```
-
-The image must exist in Artifact Registry first. Either run the GitHub Actions workflow once to push it, or build and push manually:
-
-```bash
-docker build -t fruitq .
-docker tag fruitq us-central1-docker.pkg.dev/YOUR_PROJECT_ID/fruitq/api:latest
-gcloud auth configure-docker us-central1-docker.pkg.dev
-docker push us-central1-docker.pkg.dev/YOUR_PROJECT_ID/fruitq/api:latest
-terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
-```
+1. Go back to **Cloud Storage**: https://console.cloud.google.com/storage/browser
+2. Click the bucket you created in step 4 (e.g. `fruitq-app-12345-fruitq-tfstate`).
+3. Click the **"Permissions"** tab.
+4. Click **"Grant access"**.
+5. **New principals:** paste the service account email from step 5b.
+6. **Role:** choose **Storage Admin**.
+7. Click **"Save"**.
 
 ---
 
-## Summary
+## Step 7 — Enable the required APIs
 
-- **Account**: [cloud.google.com/free](https://cloud.google.com/free) → $300 credits, 90 days.
-- **Secrets**: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY` in GitHub repo settings.
-- **Deploy**: Push to `main` → GitHub Actions builds, pushes to GCP, runs Terraform → Cloud Run URLs in the workflow log.
+Two services need to be activated in your project. This is a one-time step.
+
+1. Enable **Artifact Registry** (stores your Docker image):
+   - Open: https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com
+   - Select your project → click **"Enable"**.
+
+2. Enable **Cloud Run** (runs your app):
+   - Open: https://console.cloud.google.com/apis/library/run.googleapis.com
+   - Select your project → click **"Enable"**.
+
+3. Wait 1–2 minutes for the changes to take effect.
+
+---
+
+## Step 8 — Create the Artifact Registry repository
+
+This is where your Docker image will be stored on Google Cloud.
+
+1. Open: https://console.cloud.google.com/artifacts
+2. Select your project at the top.
+3. Click **"+ Create repository"**.
+4. Fill in:
+   - **Name:** `fruitq` (must be exactly this).
+   - **Format:** Docker.
+   - **Location type:** Region.
+   - **Region:** `us-central1` (same as your bucket).
+5. Click **"Create"**.
+
+---
+
+## Step 9 — Add secrets to GitHub
+
+GitHub Actions needs to know your GCP credentials to deploy. You store them as secrets in your GitHub repo — they are never visible in logs.
+
+1. Open your repo: **https://github.com/wasimahmadpk/fruitesQ**
+2. Go to **Settings** → **Secrets and variables** → **Actions**.
+3. Click **"New repository secret"** for each of the following:
+
+| Secret name | What to paste |
+|---|---|
+| `GCP_PROJECT_ID` | Your GCP Project ID (e.g. `fruitq-app-12345`) |
+| `GCP_REGION` | `us-central1` |
+| `GCP_SA_KEY` | The **entire contents** of the JSON key file from step 5d (open the file, select all, copy, paste) |
+| `HF_TOKEN` | A Hugging Face read token — creates one free at https://huggingface.co/settings/tokens — prevents 429 errors when loading the AI model |
+
+> After adding all four secrets, you should see `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY`, and `HF_TOKEN` in the secrets list.
+
+---
+
+## Step 10 — Deploy
+
+Push any commit to the `main` branch of your GitHub repository. This automatically triggers the full pipeline:
+
+1. **Tests** run (`pytest`).
+2. **Docker image** is built and pushed to GitHub Container Registry.
+3. Image is pushed to **Google Artifact Registry**.
+4. **Terraform** deploys the API and Dashboard to **Cloud Run**.
+
+**To monitor the deploy:**
+1. Open: **https://github.com/wasimahmadpk/fruitesQ/actions**
+2. Click the latest run.
+3. Wait for all jobs to show a green tick.
+4. Open the **"Deploy to GCP (Cloud Run)"** job.
+5. Scroll to the bottom of the log — Terraform prints your live URLs:
+   - `api_url` — your REST API
+   - `dashboard_url` — your Streamlit dashboard
+
+---
+
+## Summary checklist
+
+- [ ] Google Cloud account created
+- [ ] Project created; Project ID copied
+- [ ] Billing enabled
+- [ ] Storage bucket created (`YOUR_PROJECT_ID-fruitq-tfstate`)
+- [ ] Bucket access granted to service account (Storage Admin)
+- [ ] Artifact Registry API enabled
+- [ ] Cloud Run API enabled
+- [ ] Artifact Registry repository `fruitq` created
+- [ ] Service account `github-actions-fruitq` created with 3 roles
+- [ ] JSON key downloaded
+- [ ] GitHub secrets added: `GCP_PROJECT_ID`, `GCP_REGION`, `GCP_SA_KEY`, `HF_TOKEN`
+- [ ] Push to `main` triggered the deploy → green tick in Actions → live URLs in log
 
 ---
 
 ## Troubleshooting
 
-### Terraform "Error acquiring the state lock"
+### 429 Too Many Requests (Hugging Face rate limit)
 
-A previous run may have left the state locked. CI uses `-lock=false` on apply so this should be rare. If it happens, re-run the job or force-unlock locally: `terraform init` (with backend config) then `terraform force-unlock <LOCK_ID>` using the ID from the error.
-
-### "Resource 'fruitq-api' already exists" (Terraform 409)
-
-Terraform state was not persisted, so it tried to create a service that already exists. Fix:
-
-1. Create the **GCS bucket for Terraform state** (see step **3b** above) if you haven’t.
-2. Re-run the workflow. The job will use the bucket for state, so the next run will **update** the existing services instead of creating them.
-
-### 429 Too Many Requests when loading the model
-
-Hugging Face rate-limits unauthenticated downloads. Add a **Hugging Face token** as GitHub secret `HF_TOKEN` (see step **5.5**). Re-deploy so the API container gets the token; then the model can load without 429.
+The AI model download was blocked because no token was provided. Make sure you added `HF_TOKEN` to GitHub secrets (step 9) and re-run the deploy.
 
 ### 500 Internal Server Error on /predict
 
-The first prediction loads the CLIP model and can fail if the container has no writable cache or too little memory. We set `HF_HOME=/tmp/hf_cache` and 4Gi memory in Terraform. If it still fails:
+Check the API logs in Cloud Run:
+1. Open https://console.cloud.google.com/run
+2. Click **fruitq-api** → **Logs**.
+3. Trigger a prediction and read the error message.
 
-1. In [Cloud Run](https://console.cloud.google.com/run) click **fruitq-api** → **Logs**. Check the error message (e.g. `Out of memory`, `Permission denied`, `Connection error`).
-2. Ensure the revision has **4 GiB memory** and env **HF_HOME=/tmp/hf_cache** (re-deploy from main to apply Terraform changes).
+Common causes: not enough memory, or the model cache path is wrong (should be `/tmp/hf_cache`).
 
-### "Repository \"fruitq\" not found" (push fails)
+### "Repository fruitq not found"
 
-The Artifact Registry repo must exist before the workflow can push. Create it once:
+You haven't created the Artifact Registry repository yet. Follow step 8 above, then re-run the workflow from GitHub Actions → latest run → Re-run all jobs.
 
-1. Open **[Artifact Registry](https://console.cloud.google.com/artifacts)** in Google Cloud Console.
-2. Select your **project** at the top.
-3. Click **"+ CREATE REPOSITORY"**.
-4. **Name:** `fruitq` (must be exactly this).
-5. **Format:** **Docker**.
-6. **Mode:** Standard.
-7. **Location type:** **Region** → choose the **same region** as your `GCP_REGION` secret (e.g. **us-central1**).
-8. Click **"CREATE"**.
-9. In GitHub: **Actions** → open the failed run → **"Re-run all jobs"**.
+### "Resource fruitq-api already exists" (Terraform 409)
 
-After that, the push step should succeed.
+Terraform tried to create a Cloud Run service that already exists, because state was lost. The CI pipeline imports existing services before applying, so re-running the workflow should fix this. If not, check that the state bucket was created correctly and the service account has Storage Admin access.
 
-### "Artifact Registry API has not been used in project ... or it is disabled"
+### "Error acquiring the state lock"
 
-Enable the API once in your project:
+A previous deploy left a lock file in the state bucket. The CI runs with `-lock=false` to avoid this. If you still see it, just re-run the workflow — the lock should clear on its own.
 
-1. Open: **[https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com](https://console.cloud.google.com/apis/library/artifactregistry.googleapis.com)**
-2. Select your **project** at the top.
-3. Click **"ENABLE"**.
-4. Also enable **Cloud Run** if needed: [https://console.cloud.google.com/apis/library/run.googleapis.com](https://console.cloud.google.com/apis/library/run.googleapis.com) → **ENABLE**.
-5. Wait 1–2 minutes, then re-run the failed workflow: **Actions** → open the run → **Re-run all jobs**.
+### "Permission denied" on any step
+
+Check that the service account has the correct roles (Cloud Run Admin, Artifact Registry Administrator, Service Account User) and that the service account has Storage Admin on the state bucket.
