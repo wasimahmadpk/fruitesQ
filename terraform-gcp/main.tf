@@ -2,6 +2,8 @@
 # Uses Artifact Registry for the container image (pushed by CI).
 
 terraform {
+  backend "gcs" {}
+
   required_providers {
     google = {
       source  = "hashicorp/google"

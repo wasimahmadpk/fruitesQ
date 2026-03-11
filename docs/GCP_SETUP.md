@@ -32,7 +32,21 @@ This guide walks you through creating a Google Cloud account and deploying Fruit
 
 ---
 
-## 3b. Enable required APIs (one-time)
+## 3b. Create GCS bucket for Terraform state (one-time)
+
+So Terraform can update existing Cloud Run services (instead of failing with "already exists"), state is stored in a GCS bucket.
+
+1. Open **[Cloud Storage](https://console.cloud.google.com/storage/browser)** in your project.
+2. Click **CREATE BUCKET**.
+3. **Name:** `YOUR_PROJECT_ID-fruitq-tfstate` (e.g. if Project ID is `myapp-123`, use `myapp-123-fruitq-tfstate`).
+4. **Location type:** Region → same as your `GCP_REGION` (e.g. `us-central1`).
+5. Click **CREATE**.
+
+If you skip this, the workflow will try to create the bucket; if the service account lacks permission, create the bucket manually as above.
+
+---
+
+## 3c. Enable required APIs (one-time)
 
 The deploy needs **Artifact Registry** and **Cloud Run** to be enabled in your project:
 
@@ -181,6 +195,13 @@ terraform apply -var="project_id=YOUR_PROJECT_ID" -var="region=us-central1"
 ---
 
 ## Troubleshooting
+
+### "Resource 'fruitq-api' already exists" (Terraform 409)
+
+Terraform state was not persisted, so it tried to create a service that already exists. Fix:
+
+1. Create the **GCS bucket for Terraform state** (see step **3b** above) if you haven’t.
+2. Re-run the workflow. The job will use the bucket for state, so the next run will **update** the existing services instead of creating them.
 
 ### "Repository \"fruitq\" not found" (push fails)
 

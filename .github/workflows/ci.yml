@@ -107,9 +107,21 @@ jobs:
         with:
           terraform_version: "1.8.0"
 
+      - name: Ensure GCS bucket for Terraform state
+        run: |
+          BUCKET="${{ secrets.GCP_PROJECT_ID }}-fruitq-tfstate"
+          gcloud storage buckets describe gs://$BUCKET 2>/dev/null || \
+          gcloud storage buckets create gs://$BUCKET --location=${{ secrets.GCP_REGION }} --project=${{ secrets.GCP_PROJECT_ID }}
+
       - name: Terraform Init (GCP)
         working-directory: terraform-gcp
-        run: terraform init
+        env:
+          TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          TF_VAR_region: ${{ secrets.GCP_REGION }}
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.GCP_PROJECT_ID }}-fruitq-tfstate" \
+            -backend-config="prefix=fruitq"
 
       - name: Ensure Artifact Registry repo exists
         run: |
