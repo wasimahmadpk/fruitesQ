@@ -2,7 +2,7 @@
 
 > AI-powered fruit ripeness detection and shipping optimisation.
 
-Take a photo of a fruit, upload it, and FruitQ tells you how ripe it is and when it should ship. The most ripe fruits always go first, reducing food waste.
+Take a photo of a fruit, upload it, and FruitesQ tells you how ripe it is and when it should ship. The most ripe fruits always go first, reducing food waste.
 
 ---
 
