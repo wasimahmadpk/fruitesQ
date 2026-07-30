@@ -1,4 +1,4 @@
-# FruitesQ
+# FruitsQ
 
 > AI-powered fruit ripeness detection and shipping optimisation.
 
